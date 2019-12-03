@@ -191,7 +191,7 @@ func updateAlerts(existingAlerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBS
 		var alertToUpdate *m.Alert
 
 		for _, k := range existingAlerts {
-			if alert.PanelId == k.PanelId {
+			if alert.Settings.Get("objectId").MustFloat64() == k.Settings.Get("objectId").MustFloat64() {
 				update = true
 				alert.Id = k.Id
 				alertToUpdate = k
@@ -250,7 +250,7 @@ func deleteMissingAlerts(alerts []*m.Alert, cmd *m.SaveAlertsCommand, sess *DBSe
 		missing := true
 
 		for _, k := range cmd.Alerts {
-			if missingAlert.PanelId == k.PanelId {
+			if missingAlert.Settings.Get("objectId").MustFloat64() == k.Settings.Get("objectId").MustFloat64() {
 				missing = false
 				break
 			}
