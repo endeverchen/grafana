@@ -8,10 +8,23 @@ import appEvents from 'app/core/app_events';
 import { BackendSrv } from 'app/core/services/backend_srv';
 import { DashboardSrv } from '../dashboard/services/DashboardSrv';
 import DatasourceSrv from '../plugins/datasource_srv';
-import { DataQuery, DataSourceApi } from '@grafana/data';
+import { DataQuery } from '@grafana/data';
 import { PanelModel } from 'app/features/dashboard/state';
 import { getDefaultCondition } from './getAlertingValidationMessage';
 import { CoreEvents } from 'app/types';
+import { VariableSrv } from '../templating/variable_srv';
+import { ITimeoutService } from 'angular';
+import { VariableActions, VariableModel, VariableWithOptions } from '../templating/variable';
+
+interface ConditionModel {
+  source: any;
+  type: string;
+  queryPart: QueryPart;
+  reducerPart: QueryPart;
+  evaluator: any;
+  operator: any;
+  variables: { [key: string]: VariableWithOptions };
+}
 
 export class AlertTabCtrl {
   panel: PanelModel;
@@ -19,7 +32,7 @@ export class AlertTabCtrl {
   subTabIndex: number;
   conditionTypes: any;
   alert: any;
-  conditionModels: any;
+  conditionModels: ConditionModel[];
   evalFunctions: any;
   evalOperators: any;
   noDataModes: any;
@@ -38,7 +51,9 @@ export class AlertTabCtrl {
     private backendSrv: BackendSrv,
     private dashboardSrv: DashboardSrv,
     private uiSegmentSrv: any,
-    private datasourceSrv: DatasourceSrv
+    private $timeout: ITimeoutService,
+    private datasourceSrv: DatasourceSrv,
+    private variableSrv: VariableSrv
   ) {
     this.alert = $scope.alert;
     this.panelCtrl = $scope.ctrl;
@@ -247,75 +262,124 @@ export class AlertTabCtrl {
     }
   }
 
+  getTarget(condition: any): DataQuery | string | undefined {
+    let firstTarget;
+    let foundTarget: DataQuery = null;
+
+    if (condition.type !== 'query') {
+      return undefined;
+    }
+
+    for (const target of this.panel.targets) {
+      if (!firstTarget) {
+        firstTarget = target;
+      }
+      if (condition.query.params[0] === target.refId) {
+        foundTarget = target;
+        break;
+      }
+    }
+
+    if (!foundTarget) {
+      if (firstTarget) {
+        condition.query.params[0] = firstTarget.refId;
+        foundTarget = firstTarget;
+      } else {
+        return 'Could not find any metric queries';
+      }
+    }
+
+    return foundTarget;
+  }
+
   validateModel() {
     if (!this.alert) {
       return;
     }
 
-    let firstTarget;
-    let foundTarget: DataQuery = null;
-
-    const promises: Array<Promise<any>> = [];
-    for (const condition of this.alert.conditions) {
-      if (condition.type !== 'query') {
-        continue;
-      }
-
-      for (const target of this.panel.targets) {
-        if (!firstTarget) {
-          firstTarget = target;
-        }
-        if (condition.query.params[0] === target.refId) {
-          foundTarget = target;
-          break;
-        }
-      }
-
-      if (!foundTarget) {
-        if (firstTarget) {
-          condition.query.params[0] = firstTarget.refId;
-          foundTarget = firstTarget;
-        } else {
-          this.error = 'Could not find any metric queries';
-          return;
-        }
-      }
-
-      const datasourceName = foundTarget.datasource || this.panel.datasource;
-      promises.push(
-        this.datasourceSrv.get(datasourceName).then(
-          (foundTarget => (ds: DataSourceApi) => {
-            if (!ds.meta.alerting) {
-              return Promise.reject('The datasource does not support alerting queries');
-            } else if (ds.targetContainsTemplate && ds.targetContainsTemplate(foundTarget)) {
-              return Promise.reject('Template variables are not supported in alert queries');
-            }
-            return Promise.resolve();
-          })(foundTarget)
-        )
-      );
+    if (!_.isArray(this.alert.conditions)) {
+      return;
     }
-    Promise.all(promises).then(
+    const tasks = this.alert.conditions
+      .map((condition: any) => {
+        const foundTarget = this.getTarget(condition);
+        if (_.isNull(foundTarget)) {
+          return undefined;
+        } else if (_.isString(foundTarget)) {
+          return Promise.reject(foundTarget);
+        }
+        const datasourceName = foundTarget.datasource || this.panel.datasource;
+        return this.datasourceSrv.get(datasourceName).then(ds => {
+          if (!ds.meta.alerting) {
+            return Promise.reject('The datasource does not support alerting queries');
+          } else {
+            return Promise.resolve();
+          }
+        });
+      })
+      .filter((e?: any) => e);
+    Promise.all(tasks).then(
       () => {
         this.error = '';
-        this.$scope.$apply();
+        this.$timeout(() => this.$scope.$apply());
       },
-      e => {
+      (e: any) => {
         this.error = e;
-        this.$scope.$apply();
+        this.$timeout(() => this.$scope.$apply());
       }
     );
   }
 
-  buildConditionModel(source: any) {
-    const cm: any = { source: source, type: source.type };
+  buildConditionModel(source: any): ConditionModel {
+    const condition: ConditionModel = {
+      source: source,
+      type: source.type,
+      queryPart: new QueryPart(source.query, alertDef.alertQueryDef),
+      reducerPart: alertDef.createReducerPart(source.reducer),
+      evaluator: source.evaluator,
+      operator: source.operator,
+      variables: {},
+    };
+    this.setupVariables(condition);
+    return condition;
+  }
 
-    cm.queryPart = new QueryPart(source.query, alertDef.alertQueryDef);
-    cm.reducerPart = alertDef.createReducerPart(source.reducer);
-    cm.evaluator = source.evaluator;
-    cm.operator = source.operator;
+  setupVariables(condition: ConditionModel) {
+    const target = this.getTarget(condition.source);
+    if (_.isObject(target)) {
+      const datasourceName = target.datasource || this.panel.datasource;
+      this.datasourceSrv.get(datasourceName).then(ds => {
+        const names = ds.getTemplateVariables ? ds.getTemplateVariables(target) : [];
+        const variables = names.map(name => {
+          const raw = this.getVariable(name);
+          const variable = _.clone(raw);
+          condition.source.variables = condition.source.variables || {};
+          variable.unlink();
+          variable.current = condition.source.variables[name] =
+            condition.source.variables[name] || _.cloneDeep(raw.current);
+          variable.options = _.cloneDeep(raw.options);
+          return variable;
+        });
+        condition.variables = _.zipObject(names, variables);
+        this.$timeout(() => this.$scope.$apply());
+      });
+    }
+  }
 
-    return cm;
+  updateVariables(conditionModel: ConditionModel, name: string) {
+    conditionModel.source.variables[name] = {
+      ...conditionModel.variables[name].current,
+    };
+    const target = this.getTarget(conditionModel.source);
+    if (_.isObject(target)) {
+      const datasourceName = target.datasource || this.panel.datasource;
+      this.datasourceSrv.get(datasourceName).then(ds => {
+        if (ds.interpolateVariablesInQueries) {
+          const [query] = ds.interpolateVariablesInQueries([target], conditionModel.variables);
+          conditionModel.source.query.model = query;
+        }
+      });
+    }
   }
 
   handleQueryPartEvent(conditionModel: any, evt: any) {
@@ -327,6 +391,7 @@ export class AlertTabCtrl {
         return Promise.resolve([]);
       }
       case 'part-param-changed': {
+        this.setupVariables(conditionModel);
         this.validateModel();
       }
       case 'get-param-options': {
@@ -427,6 +492,10 @@ export class AlertTabCtrl {
           });
       },
     });
+  }
+
+  getVariable(name: string): VariableWithOptions & VariableActions {
+    return this.variableSrv.variables.find((e: VariableModel) => e.name === name);
   }
 }
 
