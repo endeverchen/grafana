@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/imguploader"
+	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/infra/metrics"
 	"github.com/grafana/grafana/pkg/models"
@@ -140,6 +141,10 @@ func (n *notificationService) uploadImage(context *EvalContext) (err error) {
 
 	renderOpts.Path = fmt.Sprintf("d-solo/%s/%s?orgId=%d&panelId=%d", ref.Uid, ref.Slug, context.Rule.OrgID, context.Rule.PanelID)
 	if len(context.Variables) > 0 {
+		// use first variables now
+		for k, v := range context.Variables[0].MustMap() {
+			renderOpts.Path = fmt.Sprintf("%s&var-%s=%s", renderOpts.Path, url.QueryEscape(k), url.QueryEscape(simplejson.NewFromAny(v).Get("text").MustString()))
+		}
 		data, err := context.Variables[0].MarshalJSON()
 		if err != nil {
 			return err

@@ -1,4 +1,5 @@
 // Libraries
+import _ from 'lodash';
 import React, { Component } from 'react';
 import { hot } from 'react-hot-loader';
 import { connect } from 'react-redux';
@@ -73,7 +74,9 @@ export class SoloPanelPage extends Component<Props, State> {
       }
 
       // override var by url
-      panel.scopedVars = { ...panel.scopedVars, ...variables };
+      if (!_.isEmpty(variables)) {
+        panel.scopedVars = {};
+      }
       this.setState({ panel });
     }
   }
