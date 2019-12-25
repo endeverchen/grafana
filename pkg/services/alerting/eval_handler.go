@@ -34,10 +34,7 @@ func (e *DefaultEvalHandler) Eval(context *EvalContext) {
 		cr, err := condition.Eval(context)
 		if err != nil {
 			context.Error = err
-		}
-
-		// break if condition could not be evaluated
-		if context.Error != nil {
+			// break if condition could not be evaluated
 			break
 		}
 
@@ -62,6 +59,7 @@ func (e *DefaultEvalHandler) Eval(context *EvalContext) {
 		}
 
 		context.EvalMatches = append(context.EvalMatches, cr.EvalMatches...)
+		context.Variables = append(context.Variables, cr.Variables)
 	}
 
 	context.ConditionEvals = conditionEvals + " = " + strconv.FormatBool(firing)

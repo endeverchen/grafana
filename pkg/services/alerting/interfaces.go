@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"github.com/grafana/grafana/pkg/components/simplejson"
 	"time"
 
 	"github.com/grafana/grafana/pkg/models"
@@ -55,6 +56,7 @@ type ConditionResult struct {
 	NoDataFound bool
 	Operator    string
 	EvalMatches []*EvalMatch
+	Variables   *simplejson.Json
 }
 
 // Condition is responsible for evaluating an alert condition.
