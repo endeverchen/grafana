@@ -30,6 +30,7 @@ type QueryCondition struct {
 	Evaluator     AlertEvaluator
 	Operator      string
 	HandleRequest tsdb.HandleRequestFunc
+	Variables     *simplejson.Json
 }
 
 // AlertQuery contains information about what datasource a query
@@ -101,6 +102,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		NoDataFound: emptySerieCount == len(seriesList),
 		Operator:    c.Operator,
 		EvalMatches: matches,
+		Variables:   c.Variables,
 	}, nil
 }
 
@@ -242,6 +244,7 @@ func newQueryCondition(model *simplejson.Json, index int) (*QueryCondition, erro
 	operator := operatorJSON.Get("type").MustString("and")
 	condition.Operator = operator
 
+	condition.Variables = model.Get("variables")
 	return &condition, nil
 }
 

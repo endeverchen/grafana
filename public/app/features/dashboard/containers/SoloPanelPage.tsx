@@ -23,6 +23,7 @@ interface Props {
   routeInfo: DashboardRouteInfo;
   initDashboard: typeof initDashboard;
   dashboard: DashboardModel | null;
+  variables: any;
 }
 
 interface State {
@@ -51,7 +52,7 @@ export class SoloPanelPage extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    const { urlPanelId, dashboard } = this.props;
+    const { urlPanelId, dashboard, variables } = this.props;
 
     if (!dashboard) {
       return;
@@ -71,6 +72,8 @@ export class SoloPanelPage extends Component<Props, State> {
         return;
       }
 
+      // override var by url
+      panel.scopedVars = { ...panel.scopedVars, ...variables };
       this.setState({ panel });
     }
   }
@@ -100,6 +103,7 @@ const mapStateToProps = (state: StoreState) => ({
   urlSlug: state.location.routeParams.slug,
   urlType: state.location.routeParams.type,
   urlPanelId: state.location.query.panelId,
+  variables: state.location.query.variables ? JSON.parse(state.location.query.variables as string) : {},
   dashboard: state.dashboard.model as DashboardModel,
 });
 

@@ -3,7 +3,6 @@ package alerting
 import (
 	"errors"
 	"fmt"
-
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/imguploader"
 	"github.com/grafana/grafana/pkg/infra/log"
@@ -11,6 +10,7 @@ import (
 	"github.com/grafana/grafana/pkg/models"
 	"github.com/grafana/grafana/pkg/services/rendering"
 	"github.com/grafana/grafana/pkg/setting"
+	"net/url"
 )
 
 // NotifierPlugin holds meta information about a notifier.
@@ -139,6 +139,13 @@ func (n *notificationService) uploadImage(context *EvalContext) (err error) {
 	}
 
 	renderOpts.Path = fmt.Sprintf("d-solo/%s/%s?orgId=%d&panelId=%d", ref.Uid, ref.Slug, context.Rule.OrgID, context.Rule.PanelID)
+	if len(context.Variables) > 0 {
+		data, err := context.Variables[0].MarshalJSON()
+		if err != nil {
+			return err
+		}
+		renderOpts.Path = fmt.Sprintf("%s&variables=%s", renderOpts.Path, url.QueryEscape(string(data)))
+	}
 
 	result, err := n.renderService.Render(context.Ctx, renderOpts)
 	if err != nil {

@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"github.com/grafana/grafana/pkg/components/simplejson"
 	"time"
 
 	"github.com/grafana/grafana/pkg/bus"
@@ -17,6 +18,7 @@ type EvalContext struct {
 	IsTestRun      bool
 	IsDebug        bool
 	EvalMatches    []*EvalMatch
+	Variables      []*simplejson.Json
 	Logs           []*ResultLogEntry
 	Error          error
 	ConditionEvals string
