@@ -126,7 +126,7 @@ export class PanelCtrl {
       shortcut: 'v',
     });
 
-    if (this.dashboard.meta.canEdit) {
+    if (this.dashboard.meta.canEdit && !this.panel.repeatPanelId) {
       menu.push({
         text: 'Edit',
         click: 'ctrl.editPanel();',
@@ -179,7 +179,7 @@ export class PanelCtrl {
 
   getExtendedMenu() {
     const menu = [];
-    if (!this.panel.fullscreen && this.dashboard.meta.canEdit) {
+    if (!this.panel.fullscreen && this.dashboard.meta.canEdit && !this.panel.repeatPanelId) {
       menu.push({
         text: 'Duplicate',
         click: 'ctrl.duplicate()',
