@@ -63,11 +63,31 @@ type weChatWorkNotifier struct {
 	log     log.Logger
 }
 
+func (w *weChatWorkNotifier) getDashboardName(evalContext *alerting.EvalContext) string {
+	getDashboardQuery := models.GetDashboardQuery{Id: evalContext.Rule.DashboardID}
+	if err := bus.Dispatch(&getDashboardQuery); err == nil {
+		w.log.Warn("get dashboard by id error", err)
+		return fmt.Sprintf("%s[%d]", getDashboardQuery.Result.Title, evalContext.Rule.DashboardID)
+	} else {
+		return fmt.Sprint(evalContext.Rule.DashboardID)
+	}
+}
+
+func (w *weChatWorkNotifier) getOrgName(evalContext *alerting.EvalContext) string {
+	getOrgQuery := models.GetOrgByIdQuery{Id: evalContext.Rule.OrgID}
+	if err := bus.Dispatch(&getOrgQuery); err == nil {
+		w.log.Warn("get org by id error", err)
+		return fmt.Sprintf("%s[%d]", getOrgQuery.Result.Name, evalContext.Rule.OrgID)
+	} else {
+		return fmt.Sprint(evalContext.Rule.OrgID)
+	}
+}
+
 func (w *weChatWorkNotifier) genTextBody(evalContext *alerting.EvalContext) (string, error) {
 	bodyJSON := simplejson.New()
 	bodyJSON.Set("msgtype", "text")
 	textJSON := simplejson.New()
-	content := fmt.Sprintf("%s\nRule Id:%d\nRule Name:%s\nState:%s\nOrgID:%d\nDashboardID:%d\nPanelID:%d", evalContext.GetNotificationTitle(), evalContext.Rule.ID, evalContext.Rule.Name, evalContext.Rule.State, evalContext.Rule.OrgID, evalContext.Rule.DashboardID, evalContext.Rule.PanelID)
+	content := fmt.Sprintf("%s\nRule Id:%d\nRule Name:%s\nState:%s\nOrg:%s\nDashboard:%s\nPanelID:%d", evalContext.GetNotificationTitle(), evalContext.Rule.ID, evalContext.Rule.Name, evalContext.Rule.State, w.getOrgName(evalContext), w.getDashboardName(evalContext), evalContext.Rule.PanelID)
 	if ruleURL, err := evalContext.GetRuleURL(); err != nil {
 		content = content + "\nRuleURL:" + ruleURL
 	}
@@ -88,7 +108,7 @@ func (w *weChatWorkNotifier) genMarkdownBody(evalContext *alerting.EvalContext) 
 	bodyJSON := simplejson.New()
 	bodyJSON.Set("msgtype", "markdown")
 	textJSON := simplejson.New()
-	content := fmt.Sprintf("### %s\n**Rule Id**:%d\n**Rule Name**:%s\n**State**:%s\n**OrgID**:%d\n**DashboardID**:%d\n**PanelID**:%d", evalContext.GetNotificationTitle(), evalContext.Rule.ID, evalContext.Rule.Name, evalContext.Rule.State, evalContext.Rule.OrgID, evalContext.Rule.DashboardID, evalContext.Rule.PanelID)
+	content := fmt.Sprintf("### %s\n**Rule Id**:%d\n**Rule Name**:%s\n**State**:%s\n**Org**:%s\n**Dashboard**:%s\n**PanelID**:%d", evalContext.GetNotificationTitle(), evalContext.Rule.ID, evalContext.Rule.Name, evalContext.Rule.State, w.getOrgName(evalContext), w.getDashboardName(evalContext), evalContext.Rule.PanelID)
 	if ruleURL, err := evalContext.GetRuleURL(); err != nil {
 		content = content + fmt.Sprintf("\n[RuleURL](%s)", ruleURL)
 	}
