@@ -356,7 +356,10 @@ export class AlertTabCtrl {
           return variable;
         });
         condition.variables = _.zipObject(names, variables);
-        this.$timeout(() => this.$scope.$apply());
+        this.$timeout(() => {
+          this.$scope.$apply();
+          names.map(name => this.updateVariables(condition, name));
+        });
       });
     }
   }
