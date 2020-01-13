@@ -70,6 +70,7 @@ export class DashboardModel {
     }
 
     this.events = new Emitter();
+    this.on(PanelEvents.viewModeChanged, () => this.processPendingUpdate());
     this.id = data.id || null;
     this.uid = data.uid || null;
     this.revision = data.revision;
@@ -914,7 +915,19 @@ export class DashboardModel {
     });
   }
 
+  processPendingUpdate() {
+    if (this.meta.pendingUpdate) {
+      this.meta.pendingUpdate = false;
+      setTimeout(() => this.templateVariableValueUpdated(), 0);
+    }
+  }
+
   templateVariableValueUpdated() {
+    if (this.meta.fullscreen) {
+      this.meta.pendingUpdate = true;
+      return;
+    }
+
     this.processRepeats();
     this.events.emit(CoreEvents.templateVariableValueUpdated);
   }

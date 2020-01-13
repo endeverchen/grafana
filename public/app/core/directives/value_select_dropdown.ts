@@ -10,6 +10,7 @@ import { e2e } from '@grafana/e2e';
 import coreModule from '../core_module';
 import { GrafanaRootScope } from 'app/routes/GrafanaCtrl';
 import { containsSearchFilter } from '../../features/templating/variable';
+import { DashboardModel } from '../../features/dashboard/state';
 
 export class ValueSelectDropdownCtrl {
   dropdownVisible: any;
@@ -28,6 +29,7 @@ export class ValueSelectDropdownCtrl {
   queryHasSearchFilter: boolean;
   debouncedQueryChanged: Function;
   selectors: typeof e2e.pages.Dashboard.SubMenu.selectors;
+  dashboard: DashboardModel;
 
   /** @ngInject */
   constructor(private $scope: IScope) {
@@ -37,6 +39,16 @@ export class ValueSelectDropdownCtrl {
   }
 
   show() {
+    if (this.dashboard.meta.fullscreen) {
+      // in fullscreen, should not change panel's repeat variable
+      const fullscreenPanel = this.dashboard.panels.find(panel => panel.fullscreen);
+      if (fullscreenPanel && fullscreenPanel.repeatPanelId) {
+        const originPanel = this.dashboard.getPanelById(fullscreenPanel.repeatPanelId);
+        if (originPanel && originPanel.repeat === this.variable.name) {
+          return;
+        }
+      }
+    }
     this.oldVariableText = this.variable.current.text;
     this.highlightIndex = -1;
 

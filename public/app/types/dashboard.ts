@@ -37,6 +37,7 @@ export interface DashboardMeta {
   folderTitle?: string;
   folderUrl?: string;
   created?: string;
+  pendingUpdate?: boolean;
 }
 
 export interface DashboardDataDTO {
