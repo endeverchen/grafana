@@ -1,0 +1,38 @@
+name: Docker
+on:
+  push:
+    tags:
+      - dev-*
+env:
+  IMAGE_NAME: ccr.ccs.tencentyun.com/k8s-comm/grafana
+jobs:
+  # Push image to GitHub Package Registry.
+  # See also https://docs.docker.com/docker-hub/builds/
+  push:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: make build-docker-full
+
+      - name: Log into registry
+        run: echo "${{ secrets.PASSWORD }}" | docker login ccr.ccs.tencentyun.com -u ${{ secrets.USERNAME }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=$IMAGE_NAME
+
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+
+          docker tag grafana/grafana:dev $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
