@@ -4,7 +4,7 @@ on:
     tags:
       - dev-*
 env:
-  IMAGE_NAME: ccr.ccs.tencentyun.com/k8s-comm/grafana
+  IMAGE_NAME: hkccr.ccs.tencentyun.com/k8s-comm/grafana
 jobs:
   # Push image to GitHub Package Registry.
   # See also https://docs.docker.com/docker-hub/builds/
@@ -19,7 +19,7 @@ jobs:
         run: make build-docker-full
 
       - name: Log into registry
-        run: echo "${{ secrets.PASSWORD }}" | docker login ccr.ccs.tencentyun.com -u ${{ secrets.USERNAME }} --password-stdin
+        run: echo "${{ secrets.PASSWORD }}" | docker login hkccr.ccs.tencentyun.com -u ${{ secrets.USERNAME }} --password-stdin
 
       - name: Push image
         run: |
